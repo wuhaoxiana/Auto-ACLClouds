@@ -14,9 +14,12 @@ jobs:
       actions: write
 
     steps:
-      # 1. 下载代码
       - name: 📥 下载代码
         uses: actions/checkout@v6
+      - name: 🐍 设置 Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
 
       # 2. 日期检查（决定今天是否执行）
       - name: Check interval
