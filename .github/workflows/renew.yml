@@ -2,7 +2,7 @@ name: Auto-Renew-ACL
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 23 */3 * *' # 每隔3天 12点(UTC 2点) 运行
+    - cron: '50 0 * * *'   # 每天 UTC 1：00 触发（北京时间 9：00），由脚本判断是否执行，四天一续
 
 jobs:
   Renew-acl:
@@ -11,8 +11,25 @@ jobs:
     permissions:
       contents: write
       actions: write
+      
     steps:
+      - name: 📅 日期检查
+        id: check
+        run: |
+          START="2026-07-27"
+          TODAY=$(date -u +%F)
+          start_sec=$(date -d "$START" +%s)
+          today_sec=$(date -d "$TODAY" +%s)
+          days=$(( (today_sec - start_sec) / 86400 ))
+          echo "Days since $START: $days"
+          if (( days % 4 == 0 )); then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+          
       - name: 📥 下载代码
+        if: steps.check.outputs.should_run == 'true'
         uses: actions/checkout@v6
       - name: 🐍 设置 Python
         uses: actions/setup-python@v6
@@ -20,6 +37,7 @@ jobs:
           python-version: '3.11'
           
       - name: 🛠️ 安装系统依赖
+        if: steps.check.outputs.should_run == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -30,11 +48,13 @@ jobs:
             fonts-noto-cjk
             
       - name: 🐍 安装 Python 依赖
+        if: steps.check.outputs.should_run == 'true'
         run: |
           pip install seleniumbase aiohttp requests
           seleniumbase install chromedriver
 
       - name: 🌐 设置sing-box代理转发
+        if: steps.check.outputs.should_run == 'true'
         continue-on-error: true
         env:
           NODE_LINK: ${{ secrets.NODE_LINK }}
@@ -42,6 +62,7 @@ jobs:
           bash <(wget -qO- https://main.ssss.nyc.mn/setup_proxy.sh)
           
       - name: 🚀 运行续期脚本
+        if: steps.check.outputs.should_run == 'true'
         env:
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
